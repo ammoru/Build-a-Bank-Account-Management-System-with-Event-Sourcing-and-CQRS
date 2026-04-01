@@ -52,6 +52,12 @@ npm --prefix frontend run dev
 
 Set `frontend/.env` from `frontend/.env.example` if needed.
 
+If your API is running on a non-default port (for example `8081`), set:
+
+```env
+VITE_API_BASE_URL=http://localhost:8081
+```
+
 ## API Endpoints
 
 ### Commands

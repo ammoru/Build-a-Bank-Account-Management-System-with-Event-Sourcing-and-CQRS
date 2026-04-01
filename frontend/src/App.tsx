@@ -2,19 +2,44 @@ import { useMemo, useState } from 'react';
 
 type ApiMsg = { message?: string };
 
-const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const defaultApiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 
-async function callApi(path: string, init?: RequestInit) {
+function loadStoredApiBase() {
+  try {
+    return localStorage.getItem('apiBase') ?? defaultApiBase;
+  } catch {
+    return defaultApiBase;
+  }
+}
+
+function saveApiBase(value: string) {
+  try {
+    localStorage.setItem('apiBase', value);
+  } catch {
+    // Ignore storage issues and continue with in-memory value.
+  }
+}
+
+async function callApi(apiBase: string, path: string, init?: RequestInit) {
   const response = await fetch(`${apiBase}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init
   });
 
-  const body = await response.json().catch(() => ({}));
+  const rawText = await response.text();
+  let body: unknown = {};
+  if (rawText) {
+    try {
+      body = JSON.parse(rawText);
+    } catch {
+      body = { message: rawText };
+    }
+  }
   return { response, body };
 }
 
 export function App() {
+  const [apiBase, setApiBase] = useState(loadStoredApiBase);
   const [accountId, setAccountId] = useState('acc-test-12345');
   const [ownerName, setOwnerName] = useState('Jane Doe');
   const [currency, setCurrency] = useState('USD');
@@ -32,12 +57,22 @@ export function App() {
   const [balanceAt, setBalanceAt] = useState<any>(null);
   const [projectionStatus, setProjectionStatus] = useState<any>(null);
 
-  const readableApiBase = useMemo(() => apiBase, []);
+  const readableApiBase = useMemo(() => apiBase, [apiBase]);
 
   const log = (text: string) => setStatusLog((prev) => [text, ...prev].slice(0, 20));
 
+  async function pingApi() {
+    try {
+      const response = await fetch(`${apiBase}/health`);
+      const payload = await response.json().catch(() => ({}));
+      log(`Health -> ${response.status} ${(payload as ApiMsg).message ?? JSON.stringify(payload)}`);
+    } catch (error) {
+      log(`Health -> ERROR ${(error as Error).message}`);
+    }
+  }
+
   async function createAccount() {
-    const { response, body } = await callApi('/api/accounts', {
+    const { response, body } = await callApi(apiBase, '/api/accounts', {
       method: 'POST',
       body: JSON.stringify({
         accountId,
@@ -50,7 +85,7 @@ export function App() {
   }
 
   async function deposit() {
-    const { response, body } = await callApi(`/api/accounts/${accountId}/deposit`, {
+    const { response, body } = await callApi(apiBase, `/api/accounts/${accountId}/deposit`, {
       method: 'POST',
       body: JSON.stringify({ amount: Number(amount), description, transactionId })
     });
@@ -59,7 +94,7 @@ export function App() {
   }
 
   async function withdraw() {
-    const { response, body } = await callApi(`/api/accounts/${accountId}/withdraw`, {
+    const { response, body } = await callApi(apiBase, `/api/accounts/${accountId}/withdraw`, {
       method: 'POST',
       body: JSON.stringify({ amount: Number(amount), description, transactionId })
     });
@@ -68,7 +103,7 @@ export function App() {
   }
 
   async function closeAccount() {
-    const { response, body } = await callApi(`/api/accounts/${accountId}/close`, {
+    const { response, body } = await callApi(apiBase, `/api/accounts/${accountId}/close`, {
       method: 'POST',
       body: JSON.stringify({ reason: 'User requested close' })
     });
@@ -76,36 +111,36 @@ export function App() {
   }
 
   async function loadSummary() {
-    const { response, body } = await callApi(`/api/accounts/${accountId}`);
+    const { response, body } = await callApi(apiBase, `/api/accounts/${accountId}`);
     setAccountSummary(body);
     log(`Load summary -> ${response.status}`);
   }
 
   async function loadEvents() {
-    const { response, body } = await callApi(`/api/accounts/${accountId}/events`);
+    const { response, body } = await callApi(apiBase, `/api/accounts/${accountId}/events`);
     setEvents(Array.isArray(body) ? body : []);
     log(`Load events -> ${response.status}`);
   }
 
   async function loadTransactions(page = 1) {
-    const { response, body } = await callApi(`/api/accounts/${accountId}/transactions?page=${page}&pageSize=10`);
+    const { response, body } = await callApi(apiBase, `/api/accounts/${accountId}/transactions?page=${page}&pageSize=10`);
     setTransactions(body);
     log(`Load transactions -> ${response.status}`);
   }
 
   async function loadBalanceAt() {
-    const { response, body } = await callApi(`/api/accounts/${accountId}/balance-at/${encodeURIComponent(timestamp)}`);
+    const { response, body } = await callApi(apiBase, `/api/accounts/${accountId}/balance-at/${encodeURIComponent(timestamp)}`);
     setBalanceAt(body);
     log(`Balance at -> ${response.status}`);
   }
 
   async function rebuildProjections() {
-    const { response, body } = await callApi('/api/projections/rebuild', { method: 'POST' });
+    const { response, body } = await callApi(apiBase, '/api/projections/rebuild', { method: 'POST' });
     log(`Rebuild projections -> ${response.status} ${(body as ApiMsg).message ?? ''}`);
   }
 
   async function loadProjectionStatus() {
-    const { response, body } = await callApi('/api/projections/status');
+    const { response, body } = await callApi(apiBase, '/api/projections/status');
     setProjectionStatus(body);
     log(`Projection status -> ${response.status}`);
   }
@@ -114,6 +149,14 @@ export function App() {
     <main className="shell">
       <h1>Bank Account ES + CQRS Demo</h1>
       <p className="hint">API base: {readableApiBase}</p>
+      <section className="card">
+        <h2>Connection</h2>
+        <input value={apiBase} onChange={(e) => setApiBase(e.target.value)} placeholder="http://localhost:8081" />
+        <div className="row">
+          <button onClick={() => { saveApiBase(apiBase); log(`Saved API base -> ${apiBase}`); }}>Save API Base</button>
+          <button onClick={pingApi}>Health Check</button>
+        </div>
+      </section>
 
       <section className="grid">
         <div className="card">
