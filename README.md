@@ -1,12 +1,11 @@
 # Bank Account Management System (Event Sourcing + CQRS)
 
-This project implements a bank account backend API using Event Sourcing and CQRS, plus a sample frontend to exercise all command/query/admin flows.
+This project implements a bank account backend API using Event Sourcing and CQRS.
 
 ## Stack
 
 - Backend: Node.js, TypeScript, Express, PostgreSQL
 - Read model projection: asynchronous in-process projector
-- Frontend sample: React + Vite
 - Containerization: Docker + Docker Compose (app + db)
 
 ## Required Files Included
@@ -17,7 +16,6 @@ This project implements a bank account backend API using Event Sourcing and CQRS
 - `submission.json`
 - `seeds/001_schema.sql`
 - backend source code under `src/`
-- sample frontend under `frontend/`
 
 ## Environment
 
@@ -31,7 +29,6 @@ DB_PASSWORD=password
 DB_NAME=bank_db
 DB_PORT=5432
 FRONTEND_API_BASE_URL=http://localhost:8080
-```
 
 ## Run with Docker
 
@@ -42,23 +39,7 @@ docker-compose up --build
 - App health: `GET /health`
 - API base: `http://localhost:${API_PORT}/api`
 
-## Run Frontend Locally
-
-```bash
-npm install
-npm --prefix frontend install
-npm --prefix frontend run dev
-```
-
-Set `frontend/.env` from `frontend/.env.example` if needed.
-
-If your API is running on a non-default port (for example `8081`), set:
-
-```env
-VITE_API_BASE_URL=http://localhost:8081
-```
-
-## API Endpoints
+## Run Frontend LocallyAPI Endpoints
 
 ### Commands
 
